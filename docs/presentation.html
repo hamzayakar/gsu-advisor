@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>GSU Virtual Academic Advisor</title>
+<style>
+  :root {
+    --bg-0:        #0b0d14;
+    --bg-1:        #141826;
+    --bg-card:    #1a1f2e;
+    --border:     #2a3142;
+    --text:       #e7e9ee;
+    --text-dim:   #a4abbb;
+    --text-mute:  #6b7180;
+    --accent:     #ffd166;      /* GSU yellow */
+    --accent-2:   #9ad7ff;      /* cool blue */
+    --good:       #6ee7a7;
+    --bad:        #ff9aa2;
+    --pill:       #1c2030;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+    background: var(--bg-0);
+    color: var(--text);
+    overflow: hidden;
+  }
+  #deck { position: relative; width: 100vw; height: 100vh; }
+  .slide {
+    position: absolute; inset: 0;
+    padding: 5.5vh 7vw;
+    display: none;
+    flex-direction: column;
+    background: radial-gradient(ellipse at top left, #181c2a 0%, #0b0d14 70%);
+  }
+  .slide.active { display: flex; }
+
+  .slide-header {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    margin-bottom: 1.8rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .slide-tag {
+    font-size: 0.85rem;
+    color: var(--accent);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: rgba(255,209,102,0.08);
+    border: 1px solid rgba(255,209,102,0.25);
+    padding: 3px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+
+  h1 { font-size: 3.2rem; color: var(--accent); letter-spacing: -1px; line-height: 1.05; }
+  h2 { font-size: 2rem; color: var(--text); letter-spacing: -0.3px; }
+  h3 { font-size: 1.15rem; color: var(--accent-2); margin: 1.1rem 0 0.4rem; }
+  h4 { font-size: 0.95rem; color: var(--accent); margin-bottom: 0.3rem; letter-spacing: 0.04em; text-transform: uppercase; }
+
+  p, li { font-size: 1.2rem; line-height: 1.55; color: var(--text-dim); }
+  ul { margin-left: 1.4rem; }
+  li { margin-bottom: 0.5rem; }
+  li::marker { color: var(--accent); }
+
+  .subtitle { font-size: 1.4rem; color: var(--accent-2); font-weight: 400; margin: 1rem 0 1.4rem; }
+  .meta { margin-top: auto; font-size: 0.9rem; color: var(--text-mute); }
+
+  code, .mono {
+    font-family: "JetBrains Mono", "SF Mono", Consolas, monospace;
+    background: var(--pill); padding: 2px 7px; border-radius: 4px;
+    color: var(--accent); font-size: 0.9em;
+  }
+  pre {
+    background: var(--bg-card); padding: 0.9rem 1.1rem; border-radius: 8px;
+    border-left: 3px solid var(--accent);
+    font-family: "JetBrains Mono", "SF Mono", Consolas, monospace;
+    font-size: 0.95rem; color: var(--text);
+    overflow-x: auto; margin: 0.5rem 0;
+  }
+
+  .cols { display: flex; gap: 2.5rem; flex: 1; }
+  .col { flex: 1; }
+
+  .pill {
+    display: inline-block; padding: 4px 12px; border-radius: 999px;
+    background: var(--pill); color: var(--accent-2);
+    font-size: 0.85rem; margin-right: 6px; margin-bottom: 6px;
+    border: 1px solid var(--border);
+  }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 0.6rem; font-size: 1.05rem; }
+  th, td { padding: 0.55rem 0.8rem; text-align: left; border-bottom: 1px solid var(--border); }
+  th { color: var(--accent); font-weight: 600; font-size: 0.95rem; letter-spacing: 0.03em; }
+  tr.highlight td { background: rgba(255,209,102,0.06); color: var(--text); }
+  td.num { font-family: "JetBrains Mono", monospace; }
+
+  .good { color: var(--good); }
+  .bad  { color: var(--bad); }
+  .accent { color: var(--accent); }
+  .dim    { color: var(--text-mute); }
+
+  .controls {
+    position: fixed; bottom: 14px; right: 22px;
+    color: var(--text-mute); font-size: 0.8rem;
+  }
+  .progress {
+    position: fixed; bottom: 0; left: 0; height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    transition: width 0.25s ease;
+  }
+  .counter {
+    position: fixed; bottom: 14px; left: 22px;
+    color: var(--text-mute); font-size: 0.8rem;
+    font-family: "JetBrains Mono", monospace;
+  }
+
+  /* card grid for differentiators */
+  .grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-top: 0.3rem;
+  }
+  .card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 1rem 1.1rem;
+  }
+  .card h4 { font-size: 0.85rem; }
+  .card p  { font-size: 1rem; color: var(--text-dim); margin: 0; }
+
+  /* algorithm matrix */
+  .matrix { display: grid; grid-template-columns: 1.2fr 1.2fr 2.5fr; gap: 0 1.2rem; align-items: baseline; margin-top: 0.4rem; }
+  .matrix .row { display: contents; }
+  .matrix .row > * { padding: 0.5rem 0; border-bottom: 1px solid var(--border); font-size: 1rem; }
+  .matrix .row:last-child > * { border-bottom: none; }
+  .matrix .layer { color: var(--accent); font-weight: 600; }
+  .matrix .pick  { color: var(--text); font-family: "JetBrains Mono", monospace; font-size: 0.95rem; }
+  .matrix .why   { color: var(--text-dim); }
+
+  /* title slide */
+  .title-slide { justify-content: center; }
+  .title-slide .badge {
+    display: inline-block;
+    padding: 4px 14px;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    border-radius: 999px;
+    font-size: 0.85rem; letter-spacing: 0.1em;
+    margin-bottom: 1.4rem;
+    width: fit-content;
+  }
+  .title-slide h1 { font-size: 4rem; }
+  .title-slide .meta-row {
+    display: flex; gap: 2rem; margin-top: 2rem;
+    color: var(--text-mute); font-size: 0.95rem;
+  }
+  .title-slide .meta-row span strong { color: var(--text); font-weight: 500; }
+
+  /* metric callouts */
+  .metric-row { display: flex; gap: 1.5rem; margin-top: 1rem; }
+  .metric { flex: 1; background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 8px; padding: 1rem 1.2rem; }
+  .metric .big { font-size: 2.4rem; font-family: "JetBrains Mono", monospace;
+                 color: var(--accent); font-weight: 600; }
+  .metric .lbl { font-size: 0.9rem; color: var(--text-mute); margin-top: 0.2rem; }
+  .metric.good .big { color: var(--good); }
+
+  /* SVG container */
+  .arch-wrap { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; }
+  .arch-wrap svg { width: 100%; height: auto; max-height: 100%; }
+
+  /* problem-then-solution pattern */
+  .ps { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem 1.6rem; }
+  .ps .prob, .ps .sol {
+    background: var(--bg-card); border-radius: 8px; padding: 0.75rem 1rem;
+    border-left: 3px solid var(--bad);
+  }
+  .ps .sol { border-left-color: var(--good); }
+  .ps .prob h4 { color: var(--bad); }
+  .ps .sol  h4 { color: var(--good); }
+  .ps p { font-size: 0.98rem; }
+</style>
+</head>
+<body>
+
+<div id="deck">
+
+  <!-- 1 / Title -->
+  <section class="slide active title-slide">
+    <span class="badge">INF473 &middot; Spring 2026 &middot; Final Project</span>
+    <h1>GSU Virtual Academic <br/>Advisor</h1>
+    <p class="subtitle">An Agentic LLM System for Graduation Requirement Analysis</p>
+    <p style="max-width: 70%;">
+      A tool-calling agent that reads your transcript, retrieves the official
+      Computer Engineering ECTS rules, and tells you where you stand &mdash;
+      <span class="accent">with sources</span>.
+    </p>
+    <div class="meta-row">
+      <span><strong>Hamza Yakar</strong> &amp; Team</span>
+      <span>Galatasaray University &middot; CE</span>
+      <span>github.com/hamzayakar/gsu-advisor</span>
+    </div>
+  </section>
+
+  <!-- 2 / Why -->
+  <section class="slide">
+    <div class="slide-header"><span class="slide-tag">Q1</span><h2>Why we picked this project</h2></div>
+
+    <div class="cols">
+      <div class="col">
+        <h3>The actual pain</h3>
+        <p>Every CE student has, at some point, opened the Bologna page, tried
+           to figure out if they have enough technical electives, and given up.</p>
+        <ul>
+          <li>Rules buried in footnotes &amp; table cells</li>
+          <li><span class="bad">INF291 / INF399</span> internship rules &mdash;
+              tribal knowledge</li>
+          <li><span class="bad">F / IA / NP</span> grades shown <em>with</em>
+              credits on e-devlet PDFs</li>
+        </ul>
+      </div>
+      <div class="col">
+        <h3>Why it&rsquo;s a good GenAI problem</h3>
+        <ul>
+          <li><span class="accent">Retrieval-heavy</span> &mdash; the LLM has to
+              look things up</li>
+          <li><span class="accent">Cross-source</span> &mdash; rule book
+              <em>and</em> personal transcript</li>
+          <li><span class="accent">Agentic</span> &mdash; needs to decide which
+              source to hit, when</li>
+          <li><span class="accent">Privacy-sensitive</span> &mdash; perfect
+              excuse for a Turkey-hosted LLM</li>
+        </ul>
+        <p style="margin-top: 1rem;" class="dim">
+          More honest than &ldquo;summarise this PDF&rdquo; demos.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 / Architecture diagram -->
+  <section class="slide">
+    <div class="slide-header"><span class="slide-tag">Q2</span><h2>System architecture</h2></div>
+
+    <div class="arch-wrap">
+      <svg viewBox="0 0 1000 460" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arrowhead" markerWidth="10" markerHeight="10"
+                  refX="8" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#8a93a8" />
+          </marker>
+          <marker id="arrowhead-blue" markerWidth="10" markerHeight="10"
+                  refX="8" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#9ad7ff" />
+          </marker>
+          <marker id="arrowhead-green" markerWidth="10" markerHeight="10"
+                  refX="8" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#6ee7a7" />
+          </marker>
+          <style>
+            .box { fill: #1a1f2e; stroke: #2a3142; stroke-width: 1.5; }
+            .llm { fill: rgba(255,209,102,0.10); stroke: #ffd166; stroke-width: 1.5; }
+            .db  { fill: rgba(154,215,255,0.10); stroke: #9ad7ff; stroke-width: 1.5; }
+            .out { fill: rgba(110,231,167,0.10); stroke: #6ee7a7; stroke-width: 1.5; }
+            .lbl { font: 600 13px -apple-system, sans-serif; fill: #e7e9ee; text-anchor: middle; }
+            .sub { font: 11px -apple-system, sans-serif; fill: #a4abbb; text-anchor: middle; }
+            .lane { font: 600 11px -apple-system, sans-serif; fill: #ffd166; letter-spacing: 0.08em; }
+            .toollbl { font: italic 11px -apple-system, sans-serif; }
+          </style>
+        </defs>
+
+        <!-- Offline lane label -->
+        <text x="50" y="30" class="lane">OFFLINE &middot; RUNS ONCE</text>
+
+        <!-- Offline pipeline -->
+        <g>
+          <rect class="box" x="40"  y="50" width="130" height="62" rx="6"/>
+          <text class="lbl" x="105" y="78">ECTS page</text>
+          <text class="sub" x="105" y="96">~200 kB HTML</text>
+
+          <rect class="box" x="210" y="50" width="130" height="62" rx="6"/>
+          <text class="lbl" x="275" y="78">Scraper</text>
+          <text class="sub" x="275" y="96">BeautifulSoup</text>
+
+          <rect class="llm" x="380" y="50" width="150" height="62" rx="6"/>
+          <text class="lbl" x="455" y="78">Chunker</text>
+          <text class="sub" x="455" y="96">Gemini 2.5 Pro</text>
+
+          <rect class="llm" x="570" y="50" width="150" height="62" rx="6"/>
+          <text class="lbl" x="645" y="78">Embed</text>
+          <text class="sub" x="645" y="96">qwen3-embedding-8b</text>
+
+          <rect class="db" x="760" y="50" width="180" height="62" rx="6"/>
+          <text class="lbl" x="850" y="78">Qdrant Cloud</text>
+          <text class="sub" x="850" y="96">~150 rule chunks</text>
+
+          <line x1="170" y1="81" x2="208" y2="81" stroke="#8a93a8" stroke-width="1.6" marker-end="url(#arrowhead)"/>
+          <line x1="340" y1="81" x2="378" y2="81" stroke="#8a93a8" stroke-width="1.6" marker-end="url(#arrowhead)"/>
+          <line x1="530" y1="81" x2="568" y2="81" stroke="#8a93a8" stroke-width="1.6" marker-end="url(#arrowhead)"/>
+          <line x1="720" y1="81" x2="758" y2="81" stroke="#8a93a8" stroke-width="1.6" marker-end="url(#arrowhead)"/>
+        </g>
+
+        <!-- Divider -->
+        <line x1="40" y1="170" x2="960" y2="170" stroke="#2a3142" stroke-width="1" stroke-dasharray="4,4"/>
+
+        <!-- Online lane label -->
+        <text x="50" y="200" class="lane">ONLINE &middot; EVERY CHAT TURN</text>
+
+        <!-- Online pipeline -->
+        <g>
+          <rect class="box" x="40"  y="220" width="130" height="62" rx="6"/>
+          <text class="lbl" x="105" y="248">Student</text>
+          <text class="sub" x="105" y="266">Gradio UI</text>
+
+          <rect class="box" x="210" y="220" width="130" height="62" rx="6"/>
+          <text class="lbl" x="275" y="248">Transcript</text>
+          <text class="sub" x="275" y="266">PDF + MD5 cache</text>
+
+          <rect class="llm" x="380" y="220" width="130" height="62" rx="6"/>
+          <text class="lbl" x="445" y="248">Parser</text>
+          <text class="sub" x="445" y="266">qwen3.5-35b</text>
+
+          <rect class="llm" x="550" y="220" width="130" height="62" rx="6"/>
+          <text class="lbl" x="615" y="248">Router</text>
+          <text class="sub" x="615" y="266">qwen3.5-35b</text>
+
+          <rect class="llm" x="720" y="220" width="150" height="62" rx="6"/>
+          <text class="lbl" x="795" y="248">Agent loop</text>
+          <text class="sub" x="795" y="266">gpt-oss-120b</text>
+
+          <rect class="out" x="900" y="220" width="80" height="62" rx="6"/>
+          <text class="lbl" x="940" y="248">Answer</text>
+          <text class="sub" x="940" y="266">grounded</text>
+
+          <line x1="170" y1="251" x2="208" y2="251" stroke="#8a93a8" stroke-width="1.6" marker-end="url(#arrowhead)"/>
+          <line x1="340" y1="251" x2="378" y2="251" stroke="#8a93a8" stroke-width="1.6" marker-end="url(#arrowhead)"/>
+          <line x1="510" y1="251" x2="548" y2="251" stroke="#8a93a8" stroke-width="1.6" marker-end="url(#arrowhead)"/>
+          <line x1="680" y1="251" x2="718" y2="251" stroke="#8a93a8" stroke-width="1.6" marker-end="url(#arrowhead)"/>
+          <line x1="870" y1="251" x2="898" y2="251" stroke="#8a93a8" stroke-width="1.6" marker-end="url(#arrowhead)"/>
+        </g>
+
+        <!-- Agent tool calls (cross-lane) -->
+        <path d="M 795 220 Q 830 160 850 112" fill="none" stroke="#9ad7ff" stroke-width="1.6"
+              stroke-dasharray="5,4" marker-end="url(#arrowhead-blue)"/>
+        <text x="870" y="170" class="toollbl" fill="#9ad7ff">search_rules</text>
+
+        <path d="M 720 251 Q 580 330 445 282" fill="none" stroke="#6ee7a7" stroke-width="1.6"
+              stroke-dasharray="5,4" marker-end="url(#arrowhead-green)"/>
+        <text x="560" y="335" class="toollbl" fill="#6ee7a7" text-anchor="middle">get_transcript</text>
+
+        <!-- Footer note -->
+        <text x="500" y="430" class="sub">
+          Single FastAPI process &middot; MCP SSE server at /mcp/sse &middot; Langfuse on every span
+        </text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- 4 / What's special -->
+  <section class="slide">
+    <div class="slide-header"><span class="slide-tag">Q3</span><h2>What is special about our design</h2></div>
+
+    <div class="grid-3">
+      <div class="card">
+        <h4>No LangChain</h4>
+        <p>Native OpenAI + <code>google-genai</code> SDKs only.
+           <span class="accent">&lt;1k LOC</span>, 40-line agent loop,
+           clean traces.</p>
+      </div>
+      <div class="card">
+        <h4>LLM-driven chunking</h4>
+        <p>Gemini reads full HTML, emits Pydantic-validated rule sentences.
+           <span class="accent">Replaced table-fragment retrievals with coherent rules.</span></p>
+      </div>
+      <div class="card">
+        <h4>Privacy-aware routing</h4>
+        <p>Transcripts $\rightarrow$ Kloudeks (TR-hosted) only.
+           Google sees the public rule base &mdash; never student data.</p>
+      </div>
+      <div class="card">
+        <h4>Live MCP server</h4>
+        <p>Same tools exposed via SSE at <code>/mcp/sse</code>.
+           Claude Desktop / Cursor / Claude Code connect with one line of config.</p>
+      </div>
+      <div class="card">
+        <h4>Prompts as data</h4>
+        <p>YAML + Langfuse override. <span class="accent">Zero-downtime</span>
+           prompt tuning. Full agent reasoning observable.</p>
+      </div>
+      <div class="card">
+        <h4>Hard memory ceilings</h4>
+        <p>MD5-keyed transcript cache, capped at 50.
+           No leaks on the shared HF Space.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 / Algorithms -->
+  <section class="slide">
+    <div class="slide-header"><span class="slide-tag">Q4</span><h2>Algorithms &mdash; and why</h2></div>
+
+    <div class="matrix">
+      <div class="row"><div class="layer">Layer</div><div class="pick" style="color:var(--text-mute);">Choice</div><div class="why" style="color:var(--text-mute);">Why this, not something else</div></div>
+      <div class="row">
+        <div class="layer">Embedding</div>
+        <div class="pick">qwen3-embedding-8b</div>
+        <div class="why">The only embedding model the Kloudeks tenancy exposes. Privacy constraint forces us through Kloudeks, so this was a constraint, not a comparison won.</div>
+      </div>
+      <div class="row">
+        <div class="layer">Vector DB</div>
+        <div class="pick">Qdrant Cloud, cosine</div>
+        <div class="why">Managed; payload filtering; new <code>query_points</code> API with score thresholds.</div>
+      </div>
+      <div class="row">
+        <div class="layer">Chunker</div>
+        <div class="pick">Gemini 2.5 Pro</div>
+        <div class="why">Long context + constrained decoding kills the &ldquo;model wrapped JSON in markdown&rdquo; bug.</div>
+      </div>
+      <div class="row">
+        <div class="layer">Parser/Router</div>
+        <div class="pick">qwen3.5-35b</div>
+        <div class="why">Narrow JSON-emission tasks. We also tried a Qwen <em>reasoning</em> model here &mdash; ate +600 s per turn. See Q7.</div>
+      </div>
+      <div class="row">
+        <div class="layer">Agent</div>
+        <div class="pick">gpt-oss-120b</div>
+        <div class="why">Reliable tool calling; chains transcript $\times$ rule lookups. The largest chat model Kloudeks gave us.</div>
+      </div>
+    </div>
+
+    <h3 style="margin-top: 1.4rem;">Why an agent loop, not single-shot RAG?</h3>
+    <p>&ldquo;Do I have enough technical electives?&rdquo; needs <em>both</em> the rule
+       and the transcript. Single-shot can&rsquo;t decide which store to hit, much
+       less both. The loop fetches what it needs, in the order it needs it.</p>
+  </section>
+
+  <!-- 6 / Data -->
+  <section class="slide">
+    <div class="slide-header"><span class="slide-tag">Q5</span><h2>The data</h2></div>
+
+    <div class="cols">
+      <div class="col">
+        <h3>Source 1 &mdash; ECTS regulations</h3>
+        <ul>
+          <li>Scraped from <code>ects.gsu.edu.tr/.../12</code></li>
+          <li>~200 kB cleaned HTML &rarr;
+              <span class="accent">~150 standalone Turkish rule sentences</span>
+              after Gemini chunking</li>
+          <li>Each chunk: <code>topic</code>, <code>related_course_code</code>,
+              <code>rule_type</code></li>
+          <li>Embedded once, served from Qdrant</li>
+        </ul>
+
+        <h3>Source 2 &mdash; student transcripts (runtime)</h3>
+        <ul>
+          <li>Two flavours: GSU PDF + e-devlet PDF</li>
+          <li><span class="bad">e-devlet quirk:</span> shows credits even for
+              F / IA / NP &mdash; compensated in prompt + post-processing</li>
+        </ul>
+      </div>
+      <div class="col">
+        <h3>Parsed transcript schema</h3>
+<pre>{
+  "total_credits_completed": 192.0,
+  "gpa": 3.12,
+  "failed_courses": [
+    {"code": "INF112", "grade": "F"}
+  ],
+  "all_passed_courses": [
+    {"code": "MAT101", "credits": 6.0},
+    ...
+  ]
+}</pre>
+        <p class="dim" style="font-size: 0.95rem;">
+          Small enough to drop verbatim into the agent&rsquo;s context when
+          requested via <code>get_student_transcript</code>.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 / Related work -->
+  <section class="slide">
+    <div class="slide-header"><span class="slide-tag">Q6</span><h2>Related work &amp; literature</h2></div>
+
+    <div class="grid-3">
+      <div class="card">
+        <h4>1. Vector-DB RAG advisors</h4>
+        <p>The <em>CourseGPT / AskUni / EduBot</em> family. Split FAQs into
+           500-token chunks, embed, retrieve, stuff into prompt.</p>
+        <p style="margin-top: 0.5rem;" class="bad">Works for FAQs &mdash; fails
+           when answer needs <em>your</em> data.</p>
+      </div>
+      <div class="card">
+        <h4>2. Curriculum planners</h4>
+        <p><em>DegreeWorks</em> et al. Every rule hand-coded in a rule
+           engine; transcript parsed by fixed regex.</p>
+        <p style="margin-top: 0.5rem;" class="bad">Robust but rigid &mdash;
+           new rule means new code.</p>
+      </div>
+      <div class="card">
+        <h4>3. Agentic tool-calling</h4>
+        <p>ReAct (Yao et al., 2023) + OpenAI function calling.
+           <span class="accent">Closest analogue to us.</span></p>
+        <p style="margin-top: 0.5rem;" class="good">Our additions: LLM-chunked
+           rules, privacy-aware routing, live MCP.</p>
+      </div>
+    </div>
+
+    <h3>Turkish embedding contenders &mdash; in theory</h3>
+    <p>
+      <span class="pill">multilingual-e5-large</span>
+      <span class="pill">BGE-M3</span>
+      <span class="pill" style="border-color: var(--accent); color: var(--accent);">qwen3-embedding-8b &larr; what Kloudeks gave us</span>
+    </p>
+    <p class="dim" style="font-size: 0.95rem; margin-top: 0.4rem;">
+      Privacy constraint forced our hand &mdash; the Kloudeks tenancy only
+      exposes one embedding model, so we didn&rsquo;t compare these in practice.
+    </p>
+  </section>
+
+  <!-- 8 / Benchmark (honest) -->
+  <section class="slide">
+    <div class="slide-header"><span class="slide-tag">Q7</span><h2>What we measured &mdash; and what we didn&rsquo;t</h2></div>
+
+    <div class="cols">
+      <div class="col">
+        <h3>No formal benchmark. Here&rsquo;s why.</h3>
+        <p>The Kloudeks tenancy we&rsquo;re on exposes:</p>
+        <ul>
+          <li><span class="accent">1 embedding model</span> &mdash;
+              <code>qwen3-embedding-8b</code></li>
+          <li><span class="accent">1 large chat model</span> &mdash;
+              <code>gpt-oss-120b</code></li>
+          <li><span class="accent">1 smaller chat model</span> &mdash;
+              <code>qwen3.5-35b</code></li>
+          <li><span class="bad">0 vision models</span> &mdash; would have
+              parsed transcripts straight off the PDF pages with a VLM if
+              available; using <code>pypdf</code> text extraction instead.</li>
+        </ul>
+        <p style="margin-top: 0.8rem;">
+          Privacy constraint rules out non-Kloudeks alternatives just to
+          fill a comparison table. With one option per layer, there is no
+          like-for-like benchmark to run, so this section is descriptive
+          rather than tabular.
+        </p>
+      </div>
+
+      <div class="col">
+        <h3>The one real data point we have</h3>
+        <div class="card" style="border-left: 3px solid var(--bad);">
+          <h4 style="color: var(--bad);">Tried: Qwen reasoning model on parser + router</h4>
+          <p>End-to-end latency jumped by
+             <span class="bad"><strong>~+600 s per turn</strong></span>.
+             The reasoning model&rsquo;s deliberation phase fired twice in
+             sequence (parser, then router) before the agent even started
+             generating.</p>
+          <p style="margin-top: 0.5rem;">
+             <span class="good">Reverted</span> both layers back to
+             <code>qwen3.5-35b</code>. A single point, not a controlled
+             experiment, but real &mdash; and the reason we use a
+             non-reasoning model at the narrow-task layers.
+          </p>
+        </div>
+
+        <h3 style="margin-top: 1rem;">What we can vouch for</h3>
+        <ul>
+          <li>Pipeline works end-to-end <em>locally</em> against both
+              GSU and e-devlet PDFs</li>
+          <li>Agent reliably chains both tools &mdash; visible in Langfuse</li>
+          <li><span class="accent">4&ndash;7 s</span> warm-turn latency,
+              dominated by 120B generation</li>
+          <li>Score threshold 0.45 set by eye, not by formal sweep</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9 / What went wrong -->
+  <section class="slide">
+    <div class="slide-header"><span class="slide-tag">Q8</span><h2>What went wrong along the way</h2></div>
+
+    <div class="ps">
+      <div class="prob"><h4>Naive chunking destroyed retrieval</h4>
+        <p>Recursive char splitter on HTML &rarr; fragments of tables.
+           Even the 120B agent couldn&rsquo;t read them.</p></div>
+      <div class="sol"><h4>Fix: Gemini semantic chunker</h4>
+        <p>Pydantic-constrained, standalone sentences. Replaced
+           table-fragment retrievals with coherent rule sentences.</p></div>
+
+      <div class="prob"><h4>Tool-call hallucinations</h4>
+        <p>Agent called <code>get_transcript</code> 4&times; in a row, or
+           searched with an empty string.</p></div>
+      <div class="sol"><h4>Fix: red-line prompt + hard cap</h4>
+        <p>Explicit &ldquo;call each tool at most once per turn&rdquo;
+           rule, plus a 4-iteration safety cap.</p></div>
+
+      <div class="prob"><h4>Memory leak on HF Space</h4>
+        <p>Unbounded transcript cache + Gradio tempdir paths &rarr; RAM grew
+           with every upload.</p></div>
+      <div class="sol"><h4>Fix: MD5-key + 50-entry ceiling</h4>
+        <p>Commit <code>19b8bb2</code>. Bounded, deduplicated, near-zero
+           latency for re-uploads.</p></div>
+
+      <div class="prob"><h4>e-devlet PDFs lie about credits</h4>
+        <p>F / IA / NP courses still show credits &rarr; parser
+           over-reported completion.</p></div>
+      <div class="sol"><h4>Fix: prompt rule + post-processing</h4>
+        <p>Failure grades forced to zero credits regardless of what the
+           PDF claims.</p></div>
+
+      <div class="prob"><h4>Live deploy blocked by Kloudeks IP allowlist</h4>
+        <p>HF Space&rsquo;s egress reads as a private / cloud IP from
+           Kloudeks&rsquo; side &rarr; outbound requests rejected.
+           Locally: everything works end-to-end.</p></div>
+      <div class="sol" style="border-left-color: var(--accent);">
+        <h4 style="color: var(--accent);">Status: code-side done, network-side pending</h4>
+        <p>Code, prompts, tools, MCP surface &mdash; all demonstrable
+           locally. Production endpoint dark until allowlisting on
+           Kloudeks side &mdash; fix lives outside our codebase.</p></div>
+    </div>
+
+    <p class="dim" style="margin-top: 1rem; font-size: 0.95rem;">
+      Also: Qdrant <code>search</code> deprecation, Langfuse v3&rarr;v4 migration,
+      markdown JSON fences from the parser, whitespace queries spinning up
+      the full loop. All in the report.
+    </p>
+  </section>
+
+  <!-- 10 / Future work -->
+  <section class="slide">
+    <div class="slide-header"><span class="slide-tag">Q9</span><h2>What could be done next</h2></div>
+
+    <div class="cols">
+      <div class="col">
+        <h3>Quality</h3>
+        <ul>
+          <li><span class="accent">Cross-encoder re-ranker</span>
+              (<code>bge-reranker-v2-m3</code>) &rarr; cut the off-topic
+              retrievals we still see by eye</li>
+          <li><span class="accent">An actual eval set</span> &mdash; ground-truth
+              answers reviewed with seniors, re-runnable on every change</li>
+          <li><span class="accent">Token streaming</span> &mdash; kills the
+              4&ndash;7s silence per turn for free</li>
+        </ul>
+
+        <h3>Features</h3>
+        <ul>
+          <li><span class="accent">Graduation checklist view</span> &mdash;
+              deterministic, every requirement ticked off</li>
+          <li><span class="accent">Course recommender</span> &mdash; CSP
+              solver exposed as a new agent tool</li>
+        </ul>
+      </div>
+      <div class="col">
+        <h3>Scale</h3>
+        <ul>
+          <li><span class="accent">Multi-department support</span> &mdash;
+              ingestion pipeline is generic; new dept = new URL + label</li>
+          <li><span class="accent">User accounts</span> &mdash; persistent
+              cache across redeploys</li>
+        </ul>
+
+        <h3>Hardening</h3>
+        <ul>
+          <li><span class="accent">MCP auth + rate limits</span> before any
+              real production deploy</li>
+          <li>Tighter golden-set regression tests in CI</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 11 / Takeaways -->
+  <section class="slide">
+    <div class="slide-header"><span class="slide-tag">Closing</span><h2>Takeaways</h2></div>
+
+    <ul style="font-size: 1.35rem;">
+      <li><span class="accent">Structural choices &gt; model choices.</span>
+          Semantic chunking, agent loop, externalised prompts &mdash; each
+          mattered more than picking the biggest model.</li>
+      <li><span class="accent">Agent loop beats single-shot RAG</span> structurally
+          for anything that needs both the rule book and the transcript
+          &mdash; observable, turn by turn, in Langfuse.</li>
+      <li>Privacy &amp; observability are <em>not</em> afterthoughts. Baking
+          them in from day 1 cost very little and paid off on every bug.</li>
+      <li>An MCP server fell out of the design almost for free &mdash; the
+          best kind of bonus feature.</li>
+      <li><span class="bad">Caveat:</span> currently live only locally &mdash;
+          Kloudeks rejects the HF Space&rsquo;s egress IP. Code-side done;
+          network-side pending.</li>
+    </ul>
+
+    <p style="margin-top: 1.5rem;">
+      <span class="pill">Gradio</span>
+      <span class="pill">Qdrant</span>
+      <span class="pill">Kloudeks</span>
+      <span class="pill">Gemini</span>
+      <span class="pill">Langfuse</span>
+      <span class="pill">FastMCP</span>
+      <span class="pill">HF Spaces</span>
+    </p>
+
+    <div class="meta">
+      <strong>Source:</strong> github.com/hamzayakar/gsu-advisor
+      &nbsp;&middot;&nbsp;
+      <strong>Demo:</strong> hamzayakar-gsu-advisor.hf.space
+      &nbsp;&middot;&nbsp;
+      <strong>MCP:</strong> /mcp/sse
+    </div>
+  </section>
+
+  <!-- 12 / Thanks -->
+  <section class="slide title-slide">
+    <span class="badge">QUESTIONS</span>
+    <h1>Thank you.</h1>
+    <p class="subtitle">Happy to dig into any of:</p>
+    <ul style="font-size: 1.2rem; max-width: 70%;">
+      <li>The agent loop &amp; tool-calling traces in Langfuse</li>
+      <li>Why semantic chunking beat every other change we tried</li>
+      <li>The MCP server &mdash; live demo from Claude Desktop possible</li>
+      <li>Any of the bumps from the &ldquo;What went wrong&rdquo; slide</li>
+    </ul>
+    <div class="meta-row">
+      <span><strong>github.com/hamzayakar/gsu-advisor</strong></span>
+      <span>hamzayakar-gsu-advisor.hf.space</span>
+    </div>
+  </section>
+
+</div>
+
+<div class="counter"><span id="cur">1</span> / <span id="tot">1</span></div>
+<div class="controls">&larr; / &rarr; &nbsp;&middot;&nbsp; Space &nbsp;&middot;&nbsp; F for fullscreen</div>
+<div class="progress" id="bar" style="width:0%"></div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const total  = slides.length;
+  let   idx    = 0;
+  const cur    = document.getElementById('cur');
+  const tot    = document.getElementById('tot');
+  const bar    = document.getElementById('bar');
+  tot.textContent = total;
+
+  function show(i) {
+    slides[idx].classList.remove('active');
+    idx = (i + total) % total;
+    slides[idx].classList.add('active');
+    cur.textContent = idx + 1;
+    bar.style.width = ((idx + 1) / total * 100) + '%';
+  }
+  show(0);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { show(idx + 1); e.preventDefault(); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp')                { show(idx - 1); e.preventDefault(); }
+    else if (e.key === 'Home')                                           { show(0); }
+    else if (e.key === 'End')                                            { show(total - 1); }
+    else if (e.key.toLowerCase() === 'f') {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+      else document.exitFullscreen();
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('.controls') || e.target.closest('.counter')) return;
+    const half = window.innerWidth / 2;
+    show(e.clientX > half ? idx + 1 : idx - 1);
+  });
+</script>
+
+</body>
+</html>

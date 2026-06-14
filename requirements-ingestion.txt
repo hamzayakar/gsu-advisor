@@ -1,0 +1,7 @@
+# Inherit runtime requirements
+-r requirements.txt
+# --- Semantic Chunking (Gemini) ---
+google-genai==1.73.1
+# --- Web Scraping ---
+requests==2.33.1
+beautifulsoup4==4.13.4

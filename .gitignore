@@ -1,0 +1,11 @@
+# Environments
+.env
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Data Folders
+data/raw_docs/*
+data/processed_chunks/*
+!data/**/.gitkeep
